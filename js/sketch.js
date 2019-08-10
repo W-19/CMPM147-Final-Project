@@ -24,6 +24,8 @@ let terrainNoiseVal = null;
 let biomeColor;
 let playerVelocity;
 
+let walls = [];
+
 function setup(){
 	createCanvas(800, 600);
 	noiseDetail(8, 0.35);
@@ -31,10 +33,22 @@ function setup(){
 }
 
 function draw(){
-	// Draw a noise background to start things off
-	for(let y = 0; y < height; y += 10){
-		for(let x = 0; x < width; x += 10){
+	clear();
 
+	// And of course we have to...
+	processPlayerMovement();
+
+	drawBackground(10);
+	//drawWalls();
+
+	// Draw the player
+	fill(0, 180, 0);
+	ellipse(width/2, height/2, player.size, player.size);
+}
+
+function drawBackground(unitSize){ // Draws a background using unitSize*unitSize squares
+	for(let y = 0; y < height; y += unitSize){
+		for(let x = 0; x < width; x += unitSize){
 			//noiseSeed(terrainNoiseSeed);
 			biomeColor = getBiome(x, y);
 			if(biomeColor == biomeColors.red){
@@ -51,19 +65,58 @@ function draw(){
 			}
 
 			fill(terrainNoiseVal*255*biomeColor[0], terrainNoiseVal*255*biomeColor[1], terrainNoiseVal*255*biomeColor[2]);
-			rect(x, y, 10, 10);
+			rect(x, y, unitSize, unitSize);
 		}
 	}
-
-	// And of course we have to...
-	processPlayerMovement();
-
-	// Draw the player
-	fill(0, 180, 0);
-	ellipse(width/2, height/2, player.size, player.size);
 }
 
-function getBiome(x, y){
+function drawWalls(){ // also draws background noise, for now
+	if(playerVelocity[0] < 0) generateWallsInRect(0, 20, 20, height); // left
+	else if(playerVelocity[0] > 0)generateWallsInRect(width-20, 0, width, height); // right
+
+	if(playerVelocity[1] < 0) generateWallsInRect(0, 0, width, 20); // top
+	else if(playerVelocity[1] > 0) generateWallsInRect(0, height-20, width, height); // bottom
+
+	fill(0, 0, 0); // Walls are black
+	let wallsToCull = [];
+	for(let wallIndex = 0; wallIndex < walls.length; wallIndex++){
+		if(!walls[wallIndex].onScreen()) wallsToCull += wallIndex;
+		else walls[wallIndex].draw();
+	}
+	// We do this later so no concurrent-mofification shenanigans happen
+	// Test is this is an issue and remove it if not
+	let culledSoFar = 0;
+	for(let wallIndex of wallsToCull){
+		walls.splice(wallIndex - culledSoFar);
+		culledSoFar++;
+	}
+}
+
+function generateWallsInRect(x1, y1, x2, y2){
+	for(let y = y1; y < y2; y += 10){
+		for(let x = x1; x < x2; x += 10){
+
+			//noiseSeed(terrainNoiseSeed);
+			biomeColor = getBiome(x, y);
+
+			terrainNoiseVal = noise(x+player.x, y+player.y);
+			if((biomeColor == biomeColors.blue && terrainNoiseVal < 0.45) || terrainNoiseVal < 0.25){
+				attemptToSpawnWall(x, y);
+			}
+		}
+	}
+}
+
+function attemptToSpawnWall(x, y){ // x and y are in screen coordinates
+	for(let wall of walls){
+		if(Math.abs(wall.x-(x+player.x)) < 10 && Math.abs(wall.y-(y+player.y))){
+			return false;
+		}
+	}
+	walls.push(new Wall(x+player.x, y+player.y));
+}
+
+function getBiome(x, y){ // x and y are in screen coordinates
 	//noiseSeed(biomeNoiseSeed);
 	biomeNoiseVal = noise((x+player.x)*biomeNoiseScale, (y+player.y)*biomeNoiseScale);
 	if(biomeNoiseVal < 0.27) return biomeColors.red; // red biome
