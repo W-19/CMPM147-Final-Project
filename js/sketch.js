@@ -1,11 +1,10 @@
 // This is the main file.
 
-let mode = 'game';
 let player = {
 	x: 0,
 	y: 0,
 	size: 30,
-	moveSpeed: 20
+	moveSpeed: 10
 };
 let biomeColors = {
 	red: [1.0, 0.0, 0.0],
@@ -14,15 +13,19 @@ let biomeColors = {
 	blue: [0.0, 0.0, 1.0]
 }
 
+const SQRT_2_OVER_2 = Math.sqrt(2)/2;
+
 //let biomeNoiseSeed = Math.floor(1000000000*(Math.random()-0.5));
-let biomeNoiseScale = 0.0004;
-let biomeNoiseVal = null;
+const BIOME_NOISE_SCALE = 0.0004;
+let biomeNoiseVal;
 //let terrainNoiseSeed = Math.floor(1000000000*(Math.random()-0.5));
-let terrainNoiseScale = 0.007;
-let terrainNoiseVal = null;
+const TERRAIN_NOISE_SCALE = 0.007;
+let terrainNoiseVal;
 
 let biomeColor;
 let playerVelocity;
+
+let sc; // a temp variable for whenever a function needs to get a wall's screen coords
 
 let walls = [];
 
@@ -30,6 +33,8 @@ function setup(){
 	createCanvas(800, 600);
 	noiseDetail(8, 0.35);
 	noStroke();
+	textSize(20);
+	textAlign(LEFT);
 }
 
 function draw(){
@@ -38,12 +43,16 @@ function draw(){
 	// And of course we have to...
 	processPlayerMovement();
 
-	drawBackground(10);
-	//drawWalls();
+	//drawBackground(40);
+	drawWalls();
 
 	// Draw the player
 	fill(0, 180, 0);
 	ellipse(width/2, height/2, player.size, player.size);
+
+	// Debug text
+	fill(255);
+	text("x: " + player.x + "\ny: " + player.y, 40, 40);
 }
 
 function drawBackground(unitSize){ // Draws a background using unitSize*unitSize squares
@@ -52,16 +61,16 @@ function drawBackground(unitSize){ // Draws a background using unitSize*unitSize
 			//noiseSeed(terrainNoiseSeed);
 			biomeColor = getBiome(x, y);
 			if(biomeColor == biomeColors.red){
-				terrainNoiseVal = noise((x+player.x)*2.5*terrainNoiseScale, (y+player.y)*2.5*terrainNoiseScale);
+				terrainNoiseVal = noise((x+player.x)*2.5*TERRAIN_NOISE_SCALE, (y+player.y)*2.5*TERRAIN_NOISE_SCALE);
 			}
 			else if(biomeColor == biomeColors.orange){
-				terrainNoiseVal = noise((x+player.x)*terrainNoiseScale*4, (y+player.y)/8*terrainNoiseScale*4);
+				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE*4, (y+player.y)/8*TERRAIN_NOISE_SCALE*4);
 			}
 			else if(biomeColor == biomeColors.green){
-				terrainNoiseVal = noise((x+player.x)*terrainNoiseScale, (y+player.y)*terrainNoiseScale);
+				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE, (y+player.y)*TERRAIN_NOISE_SCALE);
 			}
 			else if(biomeColor == biomeColors.blue){
-				terrainNoiseVal = 1.0-noise((x+player.x)*terrainNoiseScale/2, (y+player.y)*terrainNoiseScale/2);
+				terrainNoiseVal = 1.0-noise((x+player.x)*TERRAIN_NOISE_SCALE/2, (y+player.y)*TERRAIN_NOISE_SCALE/2);
 			}
 
 			fill(terrainNoiseVal*255*biomeColor[0], terrainNoiseVal*255*biomeColor[1], terrainNoiseVal*255*biomeColor[2]);
@@ -77,30 +86,42 @@ function drawWalls(){ // also draws background noise, for now
 	if(playerVelocity[1] < 0) generateWallsInRect(0, 0, width, 20); // top
 	else if(playerVelocity[1] > 0) generateWallsInRect(0, height-20, width, height); // bottom
 
-	fill(0, 0, 0); // Walls are black
-	let wallsToCull = [];
-	for(let wallIndex = 0; wallIndex < walls.length; wallIndex++){
-		if(!walls[wallIndex].onScreen()) wallsToCull += wallIndex;
-		else walls[wallIndex].draw();
-	}
-	// We do this later so no concurrent-mofification shenanigans happen
-	// Test is this is an issue and remove it if not
-	let culledSoFar = 0;
-	for(let wallIndex of wallsToCull){
-		walls.splice(wallIndex - culledSoFar);
-		culledSoFar++;
+	fill(Wall.color[0], Wall.color[1], Wall.color[2]);
+	var wallsToGo = walls.length;
+	while(wallsToGo--){
+		if(walls[wallsToGo].onScreen() == false){ // cull the wall if it's offscreen
+			//console.log("culled wall at " + walls[wallsToGo].x + "," + walls[wallsToGo].y + "(sc " + walls[wallsToGo].screenCoords() + ") because it was offscreen");
+			walls.splice(wallsToGo, 1);
+		}
+		else{ // otherwise, draw it
+			walls[wallsToGo].draw();
+		}
 	}
 }
 
 function generateWallsInRect(x1, y1, x2, y2){
-	for(let y = y1; y < y2; y += 10){
-		for(let x = x1; x < x2; x += 10){
+	//fill(Wall.color[0], Wall.color[1], Wall.color[2]);
+
+	for(let y = y1-player.y%Wall.size; y < y2+player.y%Wall.size; y += Wall.size){
+		for(let x = x1-player.x%Wall.size; x < x2+player.x%Wall.size; x += Wall.size){
 
 			//noiseSeed(terrainNoiseSeed);
 			biomeColor = getBiome(x, y);
+			if(biomeColor == biomeColors.red){
+				terrainNoiseVal = noise((x+player.x)*2.5*TERRAIN_NOISE_SCALE, (y+player.y)*2.5*TERRAIN_NOISE_SCALE);
+			}
+			else if(biomeColor == biomeColors.orange){
+				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE*4, (y+player.y)/8*TERRAIN_NOISE_SCALE*4);
+			}
+			else if(biomeColor == biomeColors.green){
+				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE, (y+player.y)*TERRAIN_NOISE_SCALE);
+			}
+			else if(biomeColor == biomeColors.blue){
+				terrainNoiseVal = 1.0-noise((x+player.x)*TERRAIN_NOISE_SCALE/2, (y+player.y)*TERRAIN_NOISE_SCALE/2);
+			}
 
-			terrainNoiseVal = noise(x+player.x, y+player.y);
 			if((biomeColor == biomeColors.blue && terrainNoiseVal < 0.45) || terrainNoiseVal < 0.25){
+				//rect(x, y, Wall.size, Wall.size);
 				attemptToSpawnWall(x, y);
 			}
 		}
@@ -109,7 +130,8 @@ function generateWallsInRect(x1, y1, x2, y2){
 
 function attemptToSpawnWall(x, y){ // x and y are in screen coordinates
 	for(let wall of walls){
-		if(Math.abs(wall.x-(x+player.x)) < 10 && Math.abs(wall.y-(y+player.y))){
+		sc = wall.screenCoords();
+		if(Math.abs(x-sc[0]) < Wall.size && Math.abs(y-sc[0]) < Wall.size){
 			return false;
 		}
 	}
@@ -118,7 +140,7 @@ function attemptToSpawnWall(x, y){ // x and y are in screen coordinates
 
 function getBiome(x, y){ // x and y are in screen coordinates
 	//noiseSeed(biomeNoiseSeed);
-	biomeNoiseVal = noise((x+player.x)*biomeNoiseScale, (y+player.y)*biomeNoiseScale);
+	biomeNoiseVal = noise((x+player.x)*BIOME_NOISE_SCALE, (y+player.y)*BIOME_NOISE_SCALE);
 	if(biomeNoiseVal < 0.27) return biomeColors.red; // red biome
 	else if(biomeNoiseVal < 0.37) return biomeColors.orange; // orange biome
 	else if(biomeNoiseVal < 0.5) return biomeColors.green; // green biome
@@ -135,8 +157,8 @@ function processPlayerMovement(){
 	if(keyIsDown(DOWN_ARROW)) playerVelocity[1] += player.moveSpeed;
 
 	if(playerVelocity[0] != 0 && playerVelocity[1] != 0){
-		playerVelocity[0] *= Math.sqrt(2)/2;
-		playerVelocity[1] *= Math.sqrt(2)/2;
+		playerVelocity[0] = Math.floor(playerVelocity[0]*SQRT_2_OVER_2);
+		playerVelocity[1] = Math.floor(playerVelocity[1]*SQRT_2_OVER_2);
 	}
 
 	player.x += playerVelocity[0];

@@ -11,3 +11,7 @@ p {
 img {
 	width: 200;
 }
+
+canvas {
+	border: 3px solid gray
+}

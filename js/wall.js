@@ -4,11 +4,19 @@ class Wall{
 		this.y = y;
 	}
 
+	screenCoords(){
+		return [this.x-player.x, this.y-player.y]; // why not +width/2 and +height/2??
+	}
+
 	onScreen(){
-		return Math.abs(this.x-player.x) < width/2 && Math.abs(this.y-player.y) < height/2;
+		sc = this.screenCoords();
+		return Math.abs(sc[0]) < width && Math.abs(sc[1]) < height;
 	}
 
 	draw(){
-		rect(this.x-player.x, this.y-player.y, 10, 10);
+		sc = this.screenCoords();
+		rect(sc[0]-Wall.size/2, sc[1]-Wall.size/2, Wall.size, Wall.size);
 	}
 }
+Wall.size = 10;
+Wall.color = [0, 0, 0];
