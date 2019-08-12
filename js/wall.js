@@ -10,7 +10,7 @@ class Wall{
 
 	onScreen(){
 		sc = this.screenCoords();
-		return Math.abs(sc[0]) < width && Math.abs(sc[1]) < height;
+		return sc[0] > -Wall.size && sc[0] < widthPlusWallSize && sc[1] > -Wall.size && sc[1] < heightPlusWallSize;
 	}
 
 	draw(){

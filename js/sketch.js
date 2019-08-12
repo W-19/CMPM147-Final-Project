@@ -13,7 +13,12 @@ let biomeColors = {
 	blue: [0.0, 0.0, 1.0]
 }
 
+// The number of pixels along the edge the game will check when generating/culling walls. Theoretically,
+// for max efficiency, it should equal player.moveSpeed. For some reason I need to set it higher to avoid all errors.
+const WALL_CHECK_DIST = 20;
 const SQRT_2_OVER_2 = Math.sqrt(2)/2;
+let widthPlusWallSize;
+let heightPlusWallSize;
 
 //let biomeNoiseSeed = Math.floor(1000000000*(Math.random()-0.5));
 const BIOME_NOISE_SCALE = 0.0004;
@@ -26,8 +31,11 @@ let biomeColor;
 let playerVelocity;
 
 let sc; // a temp variable for whenever a function needs to get a wall's screen coords
+let wall; // a temp variable for whenever a function iterates through the walls array (defined below)
 
 let walls = [];
+
+let showGrid = false; // a debug variable
 
 function setup(){
 	createCanvas(800, 600);
@@ -35,6 +43,10 @@ function setup(){
 	noStroke();
 	textSize(20);
 	textAlign(LEFT);
+	widthPlusWallSize = width+Wall.size;
+	heightPlusWallSize = height+Wall.size;
+
+	generateWallsInRect(0, 0, width, height);
 }
 
 function draw(){
@@ -50,9 +62,21 @@ function draw(){
 	fill(0, 180, 0);
 	ellipse(width/2, height/2, player.size, player.size);
 
+	// Show the grid if it's enabled. It gets messed up if you move diagonally.
+	if(showGrid){
+		stroke(220);
+		for(let x = Wall.size/2; x < width; x += Wall.size){
+			line(x, 0, x, height);
+		}
+		for(let y = Wall.size/2; y < height; y += Wall.size){
+			line(0, y, width, y);
+		}
+	}
+
 	// Debug text
 	fill(255);
 	text("x: " + player.x + "\ny: " + player.y, 40, 40);
+	text("walls in scene: " + walls.length, width-200, 40);
 }
 
 function drawBackground(unitSize){ // Draws a background using unitSize*unitSize squares
@@ -79,12 +103,12 @@ function drawBackground(unitSize){ // Draws a background using unitSize*unitSize
 	}
 }
 
-function drawWalls(){ // also draws background noise, for now
-	if(playerVelocity[0] < 0) generateWallsInRect(0, 20, 20, height); // left
-	else if(playerVelocity[0] > 0)generateWallsInRect(width-20, 0, width, height); // right
+function drawWalls(){
+	if(playerVelocity[0] < 0) generateWallsInRect(0, 0, WALL_CHECK_DIST, height); // left
+	else if(playerVelocity[0] > 0)generateWallsInRect(width-WALL_CHECK_DIST, 0, width, height); // right
 
-	if(playerVelocity[1] < 0) generateWallsInRect(0, 0, width, 20); // top
-	else if(playerVelocity[1] > 0) generateWallsInRect(0, height-20, width, height); // bottom
+	if(playerVelocity[1] < 0) generateWallsInRect(0, 0, width, WALL_CHECK_DIST); // top
+	else if(playerVelocity[1] > 0) generateWallsInRect(0, height-WALL_CHECK_DIST, width, height); // bottom
 
 	fill(Wall.color[0], Wall.color[1], Wall.color[2]);
 	var wallsToGo = walls.length;
@@ -100,8 +124,6 @@ function drawWalls(){ // also draws background noise, for now
 }
 
 function generateWallsInRect(x1, y1, x2, y2){
-	//fill(Wall.color[0], Wall.color[1], Wall.color[2]);
-
 	for(let y = y1-player.y%Wall.size; y < y2+player.y%Wall.size; y += Wall.size){
 		for(let x = x1-player.x%Wall.size; x < x2+player.x%Wall.size; x += Wall.size){
 
@@ -121,7 +143,6 @@ function generateWallsInRect(x1, y1, x2, y2){
 			}
 
 			if((biomeColor == biomeColors.blue && terrainNoiseVal < 0.45) || terrainNoiseVal < 0.25){
-				//rect(x, y, Wall.size, Wall.size);
 				attemptToSpawnWall(x, y);
 			}
 		}
@@ -129,9 +150,10 @@ function generateWallsInRect(x1, y1, x2, y2){
 }
 
 function attemptToSpawnWall(x, y){ // x and y are in screen coordinates
-	for(let wall of walls){
+	for(wall of walls){
 		sc = wall.screenCoords();
-		if(Math.abs(x-sc[0]) < Wall.size && Math.abs(y-sc[0]) < Wall.size){
+		if(Math.abs(x-sc[0]) < Wall.size && Math.abs(y-sc[1]) < Wall.size){
+		//if(x+player.x == sc[0] && y+player.y == sc[1]){
 			return false;
 		}
 	}
