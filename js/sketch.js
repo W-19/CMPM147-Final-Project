@@ -1,21 +1,28 @@
 // This is the main file.
 
 let player = {
-	x: 0,
-	y: 0,
+	pos: new Point(0, 0),
 	size: 30,
-	moveSpeed: 10
+	moveSpeed: 10,
+	velocity: new Point(0, 0),
+	blocked: {
+		up: false,
+		right: false,
+		down: false,
+		left: false
+	}
 };
 let biomeColors = {
-	red: [1.0, 0.0, 0.0],
-	orange: [1.0, 0.6, 0.0],
-	green: [0.0, 1.0, 0.0],
-	blue: [0.0, 0.0, 1.0]
+	red: [255, 0, 0],
+	orange: [255, 153, 0],
+	green: [0, 255, 0],
+	blue: [0, 0, 255]
 }
 
 // The number of pixels along the edge the game will check when generating/culling walls. Theoretically,
 // for max efficiency, it should equal player.moveSpeed. For some reason I need to set it higher to avoid all errors.
 const WALL_CHECK_DIST = 20;
+const COLLISION_CHECK_DIST = (player.size/2)+player.moveSpeed-1;
 const SQRT_2_OVER_2 = Math.sqrt(2)/2;
 let widthPlusWallSize;
 let heightPlusWallSize;
@@ -28,9 +35,9 @@ const TERRAIN_NOISE_SCALE = 0.007;
 let terrainNoiseVal;
 
 let biomeColor;
-let playerVelocity;
 
 let sc; // a temp variable for whenever a function needs to get a wall's screen coords
+let pt; // a temp variable for all other point-related uses
 let wall; // a temp variable for whenever a function iterates through the walls array (defined below)
 
 let walls = [];
@@ -46,17 +53,24 @@ function setup(){
 	widthPlusWallSize = width+Wall.size;
 	heightPlusWallSize = height+Wall.size;
 
-	generateWallsInRect(0, 0, width, height);
+	generateWallsInRect(new Point(0, 0), new Point(width, height));
 }
 
 function draw(){
-	clear();
+	player.blocked = {
+		top: false,
+		right: false,
+		bottom: false,
+		left: false
+	};
+
+	//drawBackground(20);
+	let currentBiome = getBiome(player.pos);
+	background(currentBiome[0]*0.4, currentBiome[1]*0.4, currentBiome[2]*0.4);
+	drawWalls();
 
 	// And of course we have to...
 	processPlayerMovement();
-
-	//drawBackground(40);
-	drawWalls();
 
 	// Draw the player
 	fill(0, 180, 0);
@@ -75,71 +89,92 @@ function draw(){
 
 	// Debug text
 	fill(255);
-	text("x: " + player.x + "\ny: " + player.y, 40, 40);
+	text("x: " + player.pos.x + "\ny: " + player.pos.y, 40, 40);
 	text("walls in scene: " + walls.length, width-200, 40);
+}
+
+// Coordinate conversion functions
+function screen2World_2Args(x, y){
+	return new Point(x+player.pos.x-width/2, y+player.pos.y-height/2);
+}
+function screen2World_1Arg(p){
+	return screen2World_2Args(p.x, p.y);
+}
+
+function world2Screen_2Args(x, y){
+	return new Point(x-player.pos.x+width/2, y-player.pos.y+height/2);
+}
+function world2Screen_1Arg(p){
+	return world2Screen_2Args(p.x, p.y);
 }
 
 function drawBackground(unitSize){ // Draws a background using unitSize*unitSize squares
 	for(let y = 0; y < height; y += unitSize){
 		for(let x = 0; x < width; x += unitSize){
 			//noiseSeed(terrainNoiseSeed);
-			biomeColor = getBiome(x, y);
+
+			pt = screen2World_2Args(x, y);
+			biomeColor = getBiome(pt);
 			if(biomeColor == biomeColors.red){
-				terrainNoiseVal = noise((x+player.x)*2.5*TERRAIN_NOISE_SCALE, (y+player.y)*2.5*TERRAIN_NOISE_SCALE);
+				terrainNoiseVal = noise(pt.x*2.5*TERRAIN_NOISE_SCALE, pt.y*2.5*TERRAIN_NOISE_SCALE);
 			}
 			else if(biomeColor == biomeColors.orange){
-				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE*4, (y+player.y)/8*TERRAIN_NOISE_SCALE*4);
+				terrainNoiseVal = noise(pt.x*TERRAIN_NOISE_SCALE*4, pt.y/8*TERRAIN_NOISE_SCALE*4);
 			}
 			else if(biomeColor == biomeColors.green){
-				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE, (y+player.y)*TERRAIN_NOISE_SCALE);
+				terrainNoiseVal = noise(pt.x*TERRAIN_NOISE_SCALE, pt.y*TERRAIN_NOISE_SCALE);
 			}
 			else if(biomeColor == biomeColors.blue){
-				terrainNoiseVal = 1.0-noise((x+player.x)*TERRAIN_NOISE_SCALE/2, (y+player.y)*TERRAIN_NOISE_SCALE/2);
+				terrainNoiseVal = 1.0-noise(pt.x*TERRAIN_NOISE_SCALE/2, pt.y*TERRAIN_NOISE_SCALE/2);
 			}
 
-			fill(terrainNoiseVal*255*biomeColor[0], terrainNoiseVal*255*biomeColor[1], terrainNoiseVal*255*biomeColor[2]);
-			rect(x, y, unitSize, unitSize);
+			fill(terrainNoiseVal*biomeColor[0], terrainNoiseVal*biomeColor[1], terrainNoiseVal*biomeColor[2]);
+			rect(x-unitSize/2, y-unitSize/2, unitSize, unitSize);
 		}
 	}
 }
 
 function drawWalls(){
-	if(playerVelocity[0] < 0) generateWallsInRect(0, 0, WALL_CHECK_DIST, height); // left
-	else if(playerVelocity[0] > 0)generateWallsInRect(width-WALL_CHECK_DIST, 0, width, height); // right
+	// Generate new walls
+	if(player.velocity.x < 0) generateWallsInRect(new Point(0, 0), new Point(WALL_CHECK_DIST, height)); // left
+	else if(player.velocity.x > 0)generateWallsInRect(new Point(width-WALL_CHECK_DIST, 0), new Point(width, height)); // right
 
-	if(playerVelocity[1] < 0) generateWallsInRect(0, 0, width, WALL_CHECK_DIST); // top
-	else if(playerVelocity[1] > 0) generateWallsInRect(0, height-WALL_CHECK_DIST, width, height); // bottom
+	if(player.velocity.y < 0) generateWallsInRect(new Point(0, 0), new Point(width, WALL_CHECK_DIST)); // top
+	else if(player.velocity.y > 0) generateWallsInRect(new Point(0, height-WALL_CHECK_DIST), new Point(width, height)); // bottom
 
-	fill(Wall.color[0], Wall.color[1], Wall.color[2]);
+	// For each wall, cull it if it's off-screen or draw it otherwise
+	// If I ever choose to forgo the contact color then it would be most efficient to set the fill color here
 	var wallsToGo = walls.length;
 	while(wallsToGo--){
-		if(walls[wallsToGo].onScreen() == false){ // cull the wall if it's offscreen
-			//console.log("culled wall at " + walls[wallsToGo].x + "," + walls[wallsToGo].y + "(sc " + walls[wallsToGo].screenCoords() + ") because it was offscreen");
+		if(walls[wallsToGo].onScreen() == false){
+			//console.log("culled wall at screen coords " + world2Screen_1Arg(walls[wallsToGo].pos) + " because it was offscreen");
 			walls.splice(wallsToGo, 1);
 		}
 		else{ // otherwise, draw it
-			walls[wallsToGo].draw();
+			walls[wallsToGo].drawAndCheckCollision();
 		}
 	}
 }
 
-function generateWallsInRect(x1, y1, x2, y2){
-	for(let y = y1-player.y%Wall.size; y < y2+player.y%Wall.size; y += Wall.size){
-		for(let x = x1-player.x%Wall.size; x < x2+player.x%Wall.size; x += Wall.size){
+function generateWallsInRect(p1, p2){ // paramaters are in SCREEN coordinates
+	for(let y = p1.y-player.pos.y%Wall.size; y < p2.y+player.pos.y%Wall.size; y += Wall.size){
+		for(let x = p1.x-player.pos.x%Wall.size; x < p2.x+player.pos.x%Wall.size; x += Wall.size){
 
 			//noiseSeed(terrainNoiseSeed);
-			biomeColor = getBiome(x, y);
+			pt = screen2World_2Args(x, y);
+			if(Math.abs(pt.x) < 100 && Math.abs(pt.y) < 100) continue; // don't draw walls near the player's spawn point
+			biomeColor = getBiome(pt);
 			if(biomeColor == biomeColors.red){
-				terrainNoiseVal = noise((x+player.x)*2.5*TERRAIN_NOISE_SCALE, (y+player.y)*2.5*TERRAIN_NOISE_SCALE);
+				terrainNoiseVal = noise(pt.x*2.5*TERRAIN_NOISE_SCALE, pt.y*2.5*TERRAIN_NOISE_SCALE);
 			}
 			else if(biomeColor == biomeColors.orange){
-				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE*4, (y+player.y)/8*TERRAIN_NOISE_SCALE*4);
+				terrainNoiseVal = noise(pt.x*TERRAIN_NOISE_SCALE*4, pt.y/8*TERRAIN_NOISE_SCALE*4);
 			}
 			else if(biomeColor == biomeColors.green){
-				terrainNoiseVal = noise((x+player.x)*TERRAIN_NOISE_SCALE, (y+player.y)*TERRAIN_NOISE_SCALE);
+				terrainNoiseVal = noise(pt.x*TERRAIN_NOISE_SCALE, pt.y*TERRAIN_NOISE_SCALE);
 			}
 			else if(biomeColor == biomeColors.blue){
-				terrainNoiseVal = 1.0-noise((x+player.x)*TERRAIN_NOISE_SCALE/2, (y+player.y)*TERRAIN_NOISE_SCALE/2);
+				terrainNoiseVal = 1.0-noise(pt.x*TERRAIN_NOISE_SCALE/2, pt.y*TERRAIN_NOISE_SCALE/2);
 			}
 
 			if((biomeColor == biomeColors.blue && terrainNoiseVal < 0.45) || terrainNoiseVal < 0.25){
@@ -149,20 +184,20 @@ function generateWallsInRect(x1, y1, x2, y2){
 	}
 }
 
-function attemptToSpawnWall(x, y){ // x and y are in screen coordinates
+function attemptToSpawnWall(x, y){ // x and y are in SCREEN coordinates
 	for(wall of walls){
 		sc = wall.screenCoords();
-		if(Math.abs(x-sc[0]) < Wall.size && Math.abs(y-sc[1]) < Wall.size){
-		//if(x+player.x == sc[0] && y+player.y == sc[1]){
+		if(Math.abs(x-sc.x) < Wall.size && Math.abs(y-sc.y) < Wall.size){
+		//if(x+player.pos.x == sc[0] && y+player.pos.y == sc[1]){
 			return false;
 		}
 	}
-	walls.push(new Wall(x+player.x, y+player.y));
+	walls.push(new Wall(screen2World_2Args(x, y)));
 }
 
-function getBiome(x, y){ // x and y are in screen coordinates
+function getBiome(p){ // x and y are in WORLD coordinates
 	//noiseSeed(biomeNoiseSeed);
-	biomeNoiseVal = noise((x+player.x)*BIOME_NOISE_SCALE, (y+player.y)*BIOME_NOISE_SCALE);
+	biomeNoiseVal = noise(p.x*BIOME_NOISE_SCALE, p.y*BIOME_NOISE_SCALE);
 	if(biomeNoiseVal < 0.27) return biomeColors.red; // red biome
 	else if(biomeNoiseVal < 0.37) return biomeColors.orange; // orange biome
 	else if(biomeNoiseVal < 0.5) return biomeColors.green; // green biome
@@ -170,19 +205,20 @@ function getBiome(x, y){ // x and y are in screen coordinates
 }
 
 function processPlayerMovement(){
-	playerVelocity = [0, 0];
+	player.velocity.x = 0;
+	player.velocity.y = 0;
 
-	if(keyIsDown(LEFT_ARROW)) playerVelocity[0] -= player.moveSpeed;
-	if(keyIsDown(RIGHT_ARROW)) playerVelocity[0] += player.moveSpeed;
+	if(keyIsDown(LEFT_ARROW) && !player.blocked.left) player.velocity.x -= player.moveSpeed;
+	if(keyIsDown(RIGHT_ARROW) && !player.blocked.right) player.velocity.x += player.moveSpeed;
 
-	if(keyIsDown(UP_ARROW)) playerVelocity[1] -= player.moveSpeed;
-	if(keyIsDown(DOWN_ARROW)) playerVelocity[1] += player.moveSpeed;
+	if(keyIsDown(UP_ARROW) && !player.blocked.up) player.velocity.y -= player.moveSpeed;
+	if(keyIsDown(DOWN_ARROW) && !player.blocked.down) player.velocity.y += player.moveSpeed;
 
-	if(playerVelocity[0] != 0 && playerVelocity[1] != 0){
-		playerVelocity[0] = Math.floor(playerVelocity[0]*SQRT_2_OVER_2);
-		playerVelocity[1] = Math.floor(playerVelocity[1]*SQRT_2_OVER_2);
+	if(player.velocity.x != 0 && player.velocity.y != 0){
+		player.velocity.x = Math.floor(player.velocity.x*SQRT_2_OVER_2);
+		player.velocity.y = Math.floor(player.velocity.y*SQRT_2_OVER_2);
 	}
 
-	player.x += playerVelocity[0];
-	player.y += playerVelocity[1];
+	player.pos.x += player.velocity.x;
+	player.pos.y += player.velocity.y;
 }
