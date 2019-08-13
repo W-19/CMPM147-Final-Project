@@ -36,13 +36,17 @@ let terrainNoiseVal;
 
 let biomeColor;
 
+let currentBiome;
+let currentBiomeNumericCode;
+let biomePrevalence = [0, 0, 0, 0]; // representing red, orange, green and blue respectively
+
 let sc; // a temp variable for whenever a function needs to get a wall's screen coords
 let pt; // a temp variable for all other point-related uses
 let wall; // a temp variable for whenever a function iterates through the walls array (defined below)
 
 let walls = [];
 
-let showGrid = false; // a debug variable
+let showDebugText = true;
 
 function setup(){
 	createCanvas(800, 600);
@@ -65,32 +69,24 @@ function draw(){
 	};
 
 	//drawBackground(20);
-	let currentBiome = getBiome(player.pos);
-	background(currentBiome[0]*0.4, currentBiome[1]*0.4, currentBiome[2]*0.4);
+	fillBackground();
 	drawWalls();
 
 	// And of course we have to...
 	processPlayerMovement();
 
 	// Draw the player
+	stroke(1)
 	fill(0, 180, 0);
 	ellipse(width/2, height/2, player.size, player.size);
-
-	// Show the grid if it's enabled. It gets messed up if you move diagonally.
-	if(showGrid){
-		stroke(220);
-		for(let x = Wall.size/2; x < width; x += Wall.size){
-			line(x, 0, x, height);
-		}
-		for(let y = Wall.size/2; y < height; y += Wall.size){
-			line(0, y, width, y);
-		}
-	}
+	noStroke();
 
 	// Debug text
-	fill(255);
-	text("x: " + player.pos.x + "\ny: " + player.pos.y, 40, 40);
-	text("walls in scene: " + walls.length, width-200, 40);
+	if(showDebugText){
+		fill(255);
+		text("x: " + player.pos.x + "\ny: " + player.pos.y, 40, 40);
+		text("walls in scene: " + walls.length, width-200, 40);
+	}
 }
 
 // Coordinate conversion functions
@@ -106,6 +102,45 @@ function world2Screen_2Args(x, y){
 }
 function world2Screen_1Arg(p){
 	return world2Screen_2Args(p.x, p.y);
+}
+
+// Do a solid color background fill based on the current biome, fading when changing biomes
+// This function is extremely ugly and could definitely use improvement
+function fillBackground(){
+	currentBiome = getBiome(player.pos);
+	currentBiomeNumericCode = (currentBiome == biomeColors.red ? 0 :
+			(currentBiome == biomeColors.orange ? 1 :
+			(currentBiome == biomeColors.green ? 2 : 3)));
+
+	// update biomePrevalence
+	// 20 corresponds to the speed of the transition
+	for(let i = 0; i < biomePrevalence.length; i++){
+		if(i == currentBiomeNumericCode && biomePrevalence[i] < 40) biomePrevalence[i]++;
+		else if(biomePrevalence[i] > 0) biomePrevalence[i]--;
+	}
+
+	// record the top 2 biomes
+	let most = -1;
+	let biomeWithTheMost = biomeColors.orange; // Initialize these variables to something
+	let biomeWithTheSecondMost = biomeColors.red;
+	let prevalenceOfBiomeWithTheMost = 0;
+	let prevalenceOfBiomeWithTheSecondMost = 0;
+	for(let i = 0; i < biomePrevalence.length; i++){
+		if(biomePrevalence[i] > most){
+			most = biomePrevalence[i];
+			biomeWithTheSecondMost = biomeWithTheMost;
+			biomeWithTheMost = (i == 0 ? biomeColors.red :
+					(i == 1 ? biomeColors.orange :
+					(i == 2 ? biomeColors.green : biomeColors.blue)));
+			prevalenceOfBiomeWithTheSecondMost = prevalenceOfBiomeWithTheMost;
+			prevalenceOfBiomeWithTheMost = biomePrevalence[i];
+		}
+	}
+
+	//console.log(1.0-(prevalenceOfBiomeWithTheMost/(prevalenceOfBiomeWithTheMost+prevalenceOfBiomeWithTheSecondMost)));
+	//console.log("lerping " + biomeWithTheMost + " with " + biomeWithTheSecondMost + " with ratio " + 1.0-(prevalenceOfBiomeWithTheMost/(prevalenceOfBiomeWithTheMost+prevalenceOfBiomeWithTheSecondMost)));
+	let bgColor = lerpColor(color(biomeWithTheMost), color(biomeWithTheSecondMost), 1.0-(prevalenceOfBiomeWithTheMost/(prevalenceOfBiomeWithTheMost+prevalenceOfBiomeWithTheSecondMost)));
+	background(lerpColor(bgColor, color(0, 0, 0), 0.35)); // Dim the resultant color
 }
 
 function drawBackground(unitSize){ // Draws a background using unitSize*unitSize squares
