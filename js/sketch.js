@@ -1,5 +1,13 @@
 // This is the main file.
 
+// https://stackoverflow.com/questions/8916620
+window.addEventListener("keydown", function(e) {
+    // prevent space and arrow keys from scrolling the page
+    if([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
+        e.preventDefault();
+    }
+}, false);
+
 let player = {
 	pos: new Point(0, 0),
 	size: 30,
@@ -49,7 +57,8 @@ let walls = [];
 let showDebugText = true;
 
 function setup(){
-	createCanvas(800, 600);
+	var canvas = createCanvas(800, 600);
+	canvas.parent('canvas-holder'); // So it goes in the right place on the page
 	noiseDetail(8, 0.35);
 	noStroke();
 	textSize(20);
