@@ -54,7 +54,7 @@ let wall; // a temp variable for whenever a function iterates through the walls 
 
 let walls = [];
 
-let showDebugText = true;
+let showDebugText = false;
 
 function setup(){
 	var canvas = createCanvas(800, 600);
@@ -96,6 +96,10 @@ function draw(){
 		text("x: " + player.pos.x + "\ny: " + player.pos.y, 40, 40);
 		text("walls in scene: " + walls.length, width-200, 40);
 	}
+}
+
+function keyTyped(){
+	if(key == 'd') showDebugText = !showDebugText;
 }
 
 // Coordinate conversion functions
