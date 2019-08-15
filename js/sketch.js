@@ -55,6 +55,7 @@ let wall; // a temp variable for whenever a function iterates through the walls 
 let walls = [];
 
 let showDebugText = false;
+let useDetailedBackground = false;
 
 function setup(){
 	var canvas = createCanvas(800, 600);
@@ -77,8 +78,8 @@ function draw(){
 		left: false
 	};
 
-	//drawBackground(20);
-	fillBackground();
+	if(useDetailedBackground) drawBackground(20);
+	else fillBackground();
 	drawWalls();
 
 	// And of course we have to...
@@ -100,6 +101,7 @@ function draw(){
 
 function keyTyped(){
 	if(key == 'd') showDebugText = !showDebugText;
+	if(key == 'h') useDetailedBackground = !useDetailedBackground;
 }
 
 // Coordinate conversion functions
@@ -157,8 +159,8 @@ function fillBackground(){
 }
 
 function drawBackground(unitSize){ // Draws a background using unitSize*unitSize squares
-	for(let y = 0; y < height; y += unitSize){
-		for(let x = 0; x < width; x += unitSize){
+	for(let y = 0; y < height+unitSize/2; y += unitSize){
+		for(let x = 0; x < width+unitSize/2; x += unitSize){
 			//noiseSeed(terrainNoiseSeed);
 
 			pt = screen2World_2Args(x, y);

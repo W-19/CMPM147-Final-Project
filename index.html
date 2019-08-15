@@ -10,19 +10,27 @@
     <script type="text/javascript" src="js/sketch.js"></script>
 </head>
 <body>
-	<h1>[Name of experience]</h1>
+	<h1>2D Generative World with Biomes</h1>
 	<h3>By Simon Katzer</h3>
 	<p>
 		skatzer@ucsc.edu
 		<br><br>
 		<a href="https://github.com/W-19/CMPM147-Final-Project-Proposal">About</a>
+		|
 		<a href="https://github.com/W-19/CMPM147-Final-Project">Source</a>
 	</p>
 	<!--https://github.com/processing/p5.js/wiki/Positioning-your-canvas-->
 	<div id="canvas-holder">
 		<!-- Our canvas will go here! -->
     </div>
-	<div align="left"><p>
+	<p class="description">
+		Move around the world with the arrow keys. Press D to toggle debug info. Press H to kill/resurrect your
+		framerate by toggling the more detailed background. To start over with a new seed, reload the page.
+		<br><br>
+		There are four different biomes to explore, differentiated by their background color and wall
+		characteristics. It is possible to get stuck in small corridors, as well as to spawn inside of a large
+		wall; I did not have time to address these issues completely.
+		<br><br>
 		I've always been fascinated by terrain generation in video games. Three games in particular -
 		Minecraft, Terraria and Civilization V - showed me the possibilities that emerge when game worlds
 		are generated procedurally rather than hard-coded, and these games inspired me to use generative terrain
@@ -30,11 +38,6 @@
 		for the player to explore, with several distinct biomes, and while the difficulties I encountered
 		in implementing this in a JavaScript context took up most of my time, the end result is more or
 		less in line with my expectations.
-		<br><br>
-		Move around the world with the arrow keys. Press D to toggle debug info. There are four different
-		biomes to explore, differentiated by their background color and wall characteristics. To start over
-		with a new seed, reload the page. It is possible to get stuck in small corridors, as well as to spawn
-		inside of a large wall; I did not have time to address these issues completely.
-	</p></div>
+	</p>
 </body>
 </html>

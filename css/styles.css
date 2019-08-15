@@ -1,11 +1,32 @@
+h1{
+	font-family: sans-serif;
+}
+
+h3{
+	font-family: sans-serif;
+}
+
 body {
 	text-align: center;
 	background-color: #aaaaaa;
 }
 
 p {
+	text-align: center;
 	font-family: Helvetica;
 	font-size: 24;
+}
+
+p.description{
+	/*margin-left and margin-right serve to center the text element in this instance*/
+	margin-left: auto;
+    margin-right: auto;
+	text-align: left;
+	padding: 5px;
+	border: 2px solid black;
+	border-radius: 5px;
+	background: lightGrey;
+	max-width: 800px;
 }
 
 img {
@@ -13,5 +34,5 @@ img {
 }
 
 canvas {
-	border: 3px solid gray
+	border: 3px solid gray;
 }
